@@ -1,19 +1,19 @@
-function DoCSV() {
-  
+function DoCSV(odkud,kam) {
   var ss = SpreadsheetApp.getActiveSpreadsheet (); //aktivní Spreadsheet
-  var generator = ss.getSheetByName('Generátor'); //vzít generátor
+  var generator = ss.getSheetByName(odkud); //vzít generátor
   var delka = generator.getLastRow()+1; //počet řádků plus jedna - kvůli podmínce níže
-  var destSheet = ss.getSheetByName('Text'); //cílový sheet
+  var destSheet = ss.getSheetByName(kam); //cílový sheet
   var smazat = destSheet.getRange('A2:I' + destSheet.getLastRow() + 1); //smaže celý soubor od druhého do posledního řádku
   smazat.clear(); //tohle provede smazání
+  
+  ss.setActiveSheet(destSheet); //přepne vás, kam potřebujete
     
-  for (i = 3; i < delka; i++) { //   
-    if (generator.getRange('A' + i).getValue()=='' || generator.getRange('A' + i).getValue()=='#N/A') { continue; }
+  for (i = 3; i < delka; i++) { //provede tolikrát, kolik je řádků v generátoru   
+    if (generator.getRange('A' + i).getValue()=='' || generator.getRange('A' + i).getValue()=='#N/A') { continue; } //pokud je první buňka prázdná, nebo vyhodila chybu, tak ji přeskočit
     var zdroj = generator.getRange('A' + i + ':I' + i); //kopíruje se řádek po řádku
     var destRange = destSheet.getRange(destSheet.getLastRow()+1,1); //vždy do prvního "čistého"
-    zdroj.copyTo(destRange, {contentsOnly: true}); //zkopírovat bez formátu
-    
-    
+    zdroj.copyTo(destRange, {contentsOnly: true}); //zkopírovat bez formátu       
   }
   
+
 }
