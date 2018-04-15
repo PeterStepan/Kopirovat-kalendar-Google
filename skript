@@ -1,0 +1,19 @@
+function DoCSV() {
+  
+  var ss = SpreadsheetApp.getActiveSpreadsheet (); //aktivní Spreadsheet
+  var generator = ss.getSheetByName('Generátor'); //vzít generátor
+  var delka = generator.getLastRow()+1; //počet řádků plus jedna - kvůli podmínce níže
+  var destSheet = ss.getSheetByName('Text'); //cílový sheet
+  var smazat = destSheet.getRange('A2:I' + destSheet.getLastRow() + 1); //smaže celý soubor od druhého do posledního řádku
+  smazat.clear(); //tohle provede smazání
+    
+  for (i = 3; i < delka; i++) { //   
+    if (generator.getRange('A' + i).getValue()=='' || generator.getRange('A' + i).getValue()=='#N/A') { continue; }
+    var zdroj = generator.getRange('A' + i + ':I' + i); //kopíruje se řádek po řádku
+    var destRange = destSheet.getRange(destSheet.getLastRow()+1,1); //vždy do prvního "čistého"
+    zdroj.copyTo(destRange, {contentsOnly: true}); //zkopírovat bez formátu
+    
+    
+  }
+  
+}
