@@ -19,11 +19,9 @@ var dnes = datum.getDate(); //chceme jen datum dne
    var ui = SpreadsheetApp.getUi();
   
   ui.createMenu("Generovat")
-    .addItem("Provést","ProvestCSV")
+    .addItem("Generovat kalendáře","ProvestCSV")
     .addToUi();
 }
-
- 
 
 function DoCSV(jmeno,odkud,kam,kdo) { //jmeno = jaké jméno hledám; odkud je jaký sheet a dosesitu je do jakého sheetu
   var ss = SpreadsheetApp.getActiveSpreadsheet(); //aktivní Spreadsheet
@@ -58,7 +56,6 @@ function DoCSV(jmeno,odkud,kam,kdo) { //jmeno = jaké jméno hledám; odkud je j
   radky:    
   for (var y=0; y < pocetradku-2; y++) { //tolikrát, kolik je řádků (-2, protože jsou tam dva řádky nahoře)
     
-    Logger.log(y + ': ' + datum);
     sloupce:
       for (var i=0; i < 6; i++) { //cyklus, který musí být menší než délka data+1
         
@@ -108,11 +105,12 @@ function DoCSV(jmeno,odkud,kam,kdo) { //jmeno = jaké jméno hledám; odkud je j
         }
         
       }
-  }  
-     
+  }
+      
   druhyrng = druhy.getRange(2,1,vysledek.length,9); //aby šlo vložit, musí být range stejně velký jako vkládaná proměnná, takže vybereme stejnou velikost - vysledek.length by měl dát počet řádků
   druhyrng.setValues(vysledek);  
  
+  /*prvni.getRange(y+3,1).getValue() + '/' + datum.getMonth() + '/' + datum.getYear()*/ 
   /* zákeřná funkce, která vypodmínkuej to, jaké má být datum, měsíc, rok, funguje to :) */
   function jseDatum(sesit,cyklus,promenna) {
   var bunka = sesit.getRange(cyklus+3,1).getValue(); //jaké je datum v řádku, která se zpracovává
@@ -135,7 +133,7 @@ function DoCSV(jmeno,odkud,kam,kdo) { //jmeno = jaké jméno hledám; odkud je j
    else { //když ale buňka není z minulého měsíce ani příštího a ani není leden ani prosinec, tak se nastaví současný měsíc (+1, protože tak to má javascript)
      return bunka + '/' + (mesic + 1) + '/' + promenna.getYear(); } 
  };
-   
+    
   /*funkce, co dělá vyplnění výsledků*/
   function vyplneni(typsluzby,odkdy,dokdy) {
     vysledek[pocetradku2][0] = typsluzby;
@@ -147,7 +145,7 @@ function DoCSV(jmeno,odkud,kam,kdo) { //jmeno = jaké jméno hledám; odkud je j
     vysledek[pocetradku2][6] = '';
     vysledek[pocetradku2][7] = 'FALSE';
     vysledek[pocetradku2][8] = 'TRUE';
-    pocetradku2++;
+    pocetradku2++; /*Když najde ve sloupci, tak přidá další řádek, díky tomu tam nevnikají mezery a tak*/
   }
   
 };
@@ -163,25 +161,28 @@ function dnes() { /*nastaví příští měsíc, někde jsem to opsal*/
   SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Generátor').getRange(2,10).setValue(current);
 }
 
-//staré funkce:
-function DoCSVstare(odkud,kam) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet (); //aktivní Spreadsheet
-  var generator = ss.getSheetByName(odkud); //vzít generátor
-  var delka = generator.getLastRow()+1; //počet řádků plus jedna - kvůli podmínce níže
-  var destSheet = ss.getSheetByName(kam); //cílový sheet
-  var smazat = destSheet.getRange('A2:I' + destSheet.getLastRow() + 1); //smaže celý soubor od druhého do posledního řádku
-  smazat.clear(); //tohle provede smazání
+//import do kalendáře
+function importovat(odkud,kalendar) { //z jakého sheetu se to bude brát a do jakého kalendáře se to nahraje
+ var kal1 = CalendarApp.getCalendarById(kalendar); //vybereme kalendář podle ID
+  var ss = SpreadsheetApp.getActiveSpreadsheet(); //vybereme aktivní spreadsheet
+ var sheet = ss.getSheetByName(odkud); //vybereme z jakého sheetu se budou data brát
+ var velikost = sheet.getLastRow(); //změříme si objem dat
   
-  ss.setActiveSheet(destSheet); //přepne vás, kam potřebujete
-    
-  for (i = 3; i < delka; i++) { //provede tolikrát, kolik je řádků v generátoru   
-    if (generator.getRange('A' + i).getValue()=='' || generator.getRange('A' + i).getValue()=='#N/A') { continue; } //pokud je první buňka prázdná, nebo vyhodila chybu, tak ji přeskočit
-    var zdroj = generator.getRange('A' + i + ':I' + i); //kopíruje se řádek po řádku
-    var destRange = destSheet.getRange(destSheet.getLastRow()+1,1); //vždy do prvního "čistého"
-    zdroj.copyTo(destRange, {contentsOnly: true}); //zkopírovat bez formátu       
+  for (var i=2;i<=velikost;i++) { //dělá se tolikrát, kolik je řádek - od 2., protože máme hlavičku. Až do rovno velikosti
+ var nazev = sheet.getRange(i,1).getValue(); //vezmeme název události
+ var dat1 = sheet.getRange(i,2).getValue(); //vezmeme počáteční datum
+ var dat2 = sheet.getRange(i,4).getValue(); //vezmeme koncové datum
+  var cas1 = sheet.getRange(i,3).getValue(); //vezmeme počáteční čas
+  var cas2 = sheet.getRange(i,5).getValue(); //vezmeme koncový čas 
+  var datum1 = new Date(dat1); //z data v sheetu vytvoříme datum
+  var datum2 = new Date(dat2);
+  datum1.setHours(cas1.getHours()); //do data narveme hodiny ze sheetu
+  datum1.setMinutes(cas1.getMinutes()); //a taky minuty
+  datum2.setHours(cas2.getHours());
+  datum2.setMinutes(cas2.getMinutes());
+  kal1.createEvent(nazev,datum1,datum2); //vytvoříme událost do kalendáře
   }
   
-
 }
 
 /*záloha
