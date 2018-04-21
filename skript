@@ -1,4 +1,187 @@
-function DoCSV(odkud,kam) {
+function onOpen() { //po otevření se obarví řádek podle toho, jaký je den (bez ohledu na měsíc)
+var ss = SpreadsheetApp.getActiveSpreadsheet();
+var sheet = ss.getSheetByName('Generátor'); 
+var posledniradek = sheet.getLastRow()-2;
+var rng = sheet.getRange(3,1,posledniradek); //jen první sloupec pro hledání
+var tabulka = sheet.getRange(3,1,posledniradek,8); //pro celou tabulku
+var data = rng.getValues();
+  tabulka.setBackground('white');
+  tabulka.setBorder(true,true,true,true,false,false, "white", SpreadsheetApp.BorderStyle.SOLID_MEDIUM);                    
+var datum = new Date();
+var dnes = datum.getDate(); //chceme jen datum dne
+ 
+ for (var i=0; i < posledniradek; i++) {
+   if (data[i][0] == dnes) {
+  sheet.getRange(i+3,1,1,8).setBackground('red'); //+3 protože nahoře jsou dva řádky a i začíná od 0
+ sheet.getRange(i+3,1,1,8).setBorder(true, true, true, true, false, false, "black", SpreadsheetApp.BorderStyle.SOLID_THICK); //, SpreadsheetApp.BorderStyle.SOLID_MEDIUM
+ }
+ } 
+   var ui = SpreadsheetApp.getUi();
+  
+  ui.createMenu("Generovat")
+    .addItem("Provést","ProvestCSV")
+    .addToUi();
+}
+
+ 
+
+function DoCSV(jmeno,odkud,kam,kdo) { //jmeno = jaké jméno hledám; odkud je jaký sheet a dosesitu je do jakého sheetu
+  var ss = SpreadsheetApp.getActiveSpreadsheet(); //aktivní Spreadsheet
+  var prvni = ss.getSheetByName(odkud); //z jakého listu
+  var druhy = ss.getSheetByName(kam); //do jakého listu, zatím se nepoužívá
+  var d = new Date();
+  var search = jmeno //co hledáme - zde pak bude "jmeno"
+  var sloupec = 0; //kolikátý sloupec najdeme, podle toho vyplníme
+  var radekdata = 1; //kolikátý řádek měníme
+  var pocetradku = prvni.getLastRow(); //kolik je řádků 
+  var pocetradku2 = druhy.getLastRow(); //kolik je řádků v sheetu kam se kopíruje (-2, protože jsou tam dva řádky nahoře)
+  
+  d = prvni.getRange(2,10).getValue(); //vezme si datum z políčka; ALE PAK POKUD JE PRVNÍ ŘÁDEK VYŠŠÍ JAK 25, TAK MÍNUS MĚSÍC a pak už jen přičítat den - to je u datum
+  var prvniradek = prvni.getRange(3,1).getValue(); //udělá se podle prvního řádku
+  d.setDate(prvniradek); //den se změní na to, co je v prvním řádku tabulky služeb  
+  var datum = new Date();
+  var prvnidatum = prvni.getRange(3,1).getValue(); //datum co je v prvním řádku
+  datum = d; //jestli tohle neni trochu zbytečný
+  
+ datum.setDate(prvnidatum-1) //nastaví se na den co je v prvním řádku mínus jedna
+  
+  var smazat = druhy.getRange(2,1,pocetradku2,9); //smaže celý soubor od druhého do posledního řádku
+  smazat.clear(); //tohle provede smazání
+  
+  var prvnirng = prvni.getRange(3, 2, pocetradku-2, 6); //vezmu obsah prvního sešitu
+  var data = prvnirng.getValues(); //uložím data
+  var druhyrng = druhy.getRange(2,1,35,9); //druhá metoda - beru 35 řádků z druhého sešitu
+  
+  var vysledek = new Array();
+  vysledek = druhyrng.getValues(); //uložím data
+  var pocetradku2 = 0; //počet použitých řádků 
+  radky:    
+  for (var y=0; y < pocetradku-2; y++) { //tolikrát, kolik je řádků (-2, protože jsou tam dva řádky nahoře)
+    
+    Logger.log(y + ': ' + datum);
+    sloupce:
+      for (var i=0; i < 6; i++) { //cyklus, který musí být menší než délka data+1
+        
+        if (data[y][i] == search) { //pokud se daná buňka rovná hledanému jméno
+        sloupec = i;
+          var den = d.getDay(d.setDate(prvni.getRange(y+3,1).getValue()));
+          sluzba: //tady všude musí být výsledek
+          switch (sloupec) { //tohle by šlo asi dělat úspornějš a hlavně přes array jako to má příklad s radkem, tj. data[0][y] apod.                       
+              
+              case 0:              
+              if(den === 0) {/*Neděle*/
+                vyplneni(kdo + 'Víkend neděle','12:00','20:00');
+                            }
+              else if(den === 6) {/*Sobota*/
+                vyplneni(kdo + 'Víkend sobota','08:00','16:00');
+              }
+              else {/*zbytek*/
+                vyplneni(kdo + 'Svátek','08:30','16:30');
+              };
+              break;
+              
+              case 1:
+              vyplneni(kdo + 'Ranní','06:30','14:30');
+              break;
+              
+              case 2:
+              vyplneni(kdo + 'Ranní','06:30','14:30');             
+              break;
+              
+              case 3:
+              vyplneni(kdo + 'Od osmi','08:00','16:00');
+              break;
+              
+              case 4:
+              vyplneni(kdo + 'Od dvanácti','12:30','20:30');
+              break;
+              
+              case 5:
+              vyplneni(kdo + 'Odpolední','14:30','23:00');
+              break;
+              
+              default: 
+              break sloupce; //žádné přidání řádku
+          }
+          break sloupce;
+          
+        }
+        
+      }
+  }
+  
+     
+  druhyrng = druhy.getRange(2,1,vysledek.length,9); //aby šlo vložit, musí být range stejně velký jako vkládaná proměnná, takže vybereme stejnou velikost - vysledek.length by měl dát počet řádků
+  druhyrng.setValues(vysledek);  
+ 
+  /*moje podivná funkce na to, aby datum sedělo:*/
+  /*prvni.getRange(y+3,1).getValue() + '/' + datum.getMonth() + '/' + datum.getYear()*/ 
+  /* zákeřná funkce, která vypodmínkuej to, jaké má být datum, měsíc, rok, funguje to :) */
+  function jseDatum(sesit,cyklus,promenna) {
+  var bunka = sesit.getRange(cyklus+3,1).getValue(); //jaké je datum v řádku, která se zpracovává
+  var mesic = promenna.getMonth(); //jaký je měsíc v přednastaveném datu
+ 
+ if (bunka > 25 && cyklus < 6) { //když je to třeba třetí řádek a buňka je moc vysoká, musí se nastavit předchozí měsíc, protože je to minulý měsíc
+   if (mesic === 0) { //ale předtím se zjistí, jestli předchozí měsíc není prosinec, tj. tento musí být leden, tj. 0
+   return bunka + '/' + 12 + '/' + (promenna.getYear()-1);  //pak se tedy nastaví že předchozí měsíc byl prosinec = 12; a rok o jedno nižší
+   } else { //když není leden, tak se předchozí měsíc nastaví o jedno nižší
+   return bunka + '/' + mesic + '/' + promenna.getYear(); 
+   }
+ } else if (bunka < 15 && cyklus > 15) { //pravý opak první podmínky, když by tabulka končila dalším měsícem, tak aby to přičítalo
+   if (mesic == 11) { //nejdřív se zjistí, jestli příští měsíc není už leden, pokud ano tak
+ return bunka + '/' + 1 + '/' + (promenna.getYear()+1); //tak se nastaví jako leden a rok na příští
+   }
+   else { //jinak se příští měsíc ...
+     return bunka + '/' + (mesic + 2) + '/' + (promenna.getYear()-1);  //pak se tedy nastaví že příští měsíc je současný +1, tj. mesic + 2
+   }
+ }   
+   else { //když ale buňka není z minulého měsíce ani příštího a ani není leden ani prosinec, tak se nastaví současný měsíc (+1, protože tak to má javascript)
+     return bunka + '/' + (mesic + 1) + '/' + promenna.getYear(); } 
+ };
+  
+    
+  
+  
+  
+  /*funkce, co dělá vyplnění výsledků*/
+  function vyplneni(typsluzby,odkdy,dokdy) {
+    vysledek[pocetradku2][0] = typsluzby;
+    vysledek[pocetradku2][1] = jseDatum(prvni,y,datum);
+    vysledek[pocetradku2][2] = odkdy
+    vysledek[pocetradku2][3] = jseDatum(prvni,y,datum);
+    vysledek[pocetradku2][4] = dokdy;
+    vysledek[pocetradku2][5] = '';
+    vysledek[pocetradku2][6] = '';
+    vysledek[pocetradku2][7] = 'FALSE';
+    vysledek[pocetradku2][8] = 'TRUE';
+    pocetradku2++;
+  }
+  
+};
+
+
+function ProvestCSV() {
+DoCSV('Štěpán','Generátor','Petr','');
+DoCSV('Kubicová','Generátor','Markéta','M - '); 
+}
+
+function dnes() { /*nastaví příští měsíc, někde jsem to opsal*/
+  var now = new Date();
+  if (now.getMonth() == 11) {
+    var current = new Date(now.getFullYear() + 1, 0, 1);
+} else {
+    var current = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+};
+  
+  SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Generátor').getRange(2,10).setValue(current);
+}
+
+function cojezaden () {
+
+}
+
+//staré funkce:
+function DoCSVstare(odkud,kam) {
   var ss = SpreadsheetApp.getActiveSpreadsheet (); //aktivní Spreadsheet
   var generator = ss.getSheetByName(odkud); //vzít generátor
   var delka = generator.getLastRow()+1; //počet řádků plus jedna - kvůli podmínce níže
@@ -17,3 +200,123 @@ function DoCSV(odkud,kam) {
   
 
 }
+
+/*záloha
+function DoCSVzaloha(jmeno,odkud,kam,kdo) { //jmeno = jaké jméno hledám; odkud je jaký sheet a dosesitu je do jakého sheetu
+  
+  var ss = SpreadsheetApp.getActiveSpreadsheet(); //aktivní Spreadsheet
+  var prvni = ss.getSheetByName(odkud); //z jakého listu
+  var druhy = ss.getSheetByName(kam); //do jakého listu, zatím se nepoužívá
+  var d = new Date();
+  d = prvni.getRange(2,10).getValue(); //vezme si datum z políčka; ALE PAK POKUD JE PRVNÍ ŘÁDEK VYŠŠÍ JAK 25, TAK MÍNUS MĚSÍC a pak už jen přičítat den - to je u datum
+  var prvniradek = prvni.getRange(3,1).getValue(); //udělá se podle prvního řádku
+  d.setDate(prvniradek); //den se změní na to, co je v prvním řádku tabulky služeb
+  var search = jmeno //co hledáme - zde pak bude "jmeno"
+  var sloupec = "0"; //kolikátý sloupec najdeme, podle toho vyplníme
+  var pocetradku = prvni.getLastRow(); //kolik je řádků 
+  var pocetradku2 = druhy.getLastRow(); //kolik je řádků v sheetu kam se kopíruje (-2, protože jsou tam dva řádky nahoře)
+  
+  var datum = new Date();
+  var prvnidatum = prvni.getRange(3,1).getValue(); //datum co je v prvním řádku
+  datum = d; //jestli tohle neni trochu zbytečný
+  
+  if (prvnidatum > 25) {
+  datum.setMonth(d.getMonth(), 0); //když je první datumv řádku vyšší než 25, tak nastaví datum na poslední den minulého měsíce, což způsobí, že datum o řádek níže pak zůstává v minulém měsíci
+  } 
+  datum.setDate(prvnidatum-1) //nastaví se na den co je v prvním řádku
+  var smazat = druhy.getRange(2,1,pocetradku2,9); //smaže celý soubor od druhého do posledního řádku
+  smazat.clear(); //tohle provede smazání
+  
+  radky:    
+  for (var y=0; y < pocetradku-2; y++) { //tolikrát, kolik je řádků (-2, protože jsou tam dva řádky nahoře)
+    var radek = prvni.getRange(y+3, 2, 1, 6); //vezmeme z TESTu od B2 jeden řádek na šířku šesti sloupců, y + 2 znamená, že začínáme od třetího řádku; chtělo by to předělat na [][]
+      var data = radek.getValues(); //uchováme do data
+    datum.setDate(datum.getDate()+1); //den navíc
+    var pocetradku2 = druhy.getLastRow(); //počet řádků v cílovém listu
+    var druheradky = druhy.getRange(pocetradku2+1,1,1,9); //bere vždy ten řádek, který je prázdný
+    sloupce:
+      for (var i=0; i < 6; i++) { //cyklus, který musí být menší než délka data+1
+        if (data[0][i] == search) { //pokud se daná buňka rovná hledanému jméno
+        sloupec = i;
+          
+          sluzba:
+          switch (sloupec) { //tohle by šlo asi dělat úspornějš a hlavně přes array jako to má příklad s radkem, tj. data[0][y] apod.
+            case 0 && getDate(datum)==0: //neděle
+              druheradky.setValues([[kdo + 'Víkend',datum,'12:00',datum,'20:00','','','FALSE','TRUE']]); //y je počet řádků
+              break;
+              
+            case 0 && getDate(datum)>0 && getDate(datum)<6: //týden
+              druheradky.setValues([[kdo + 'Šéfovská',datum,'12:00',datum,'20:00','','','FALSE','TRUE']]); //y je počet řádků
+              break;
+              
+            case 0 && getDate(datum)==6: //sobota
+              druheradky.setValues([[kdo + 'Víkend',datum,'08:00',datum,'16:00','','','FALSE','TRUE']]); //y je počet řádků
+              break;
+              
+              case 1:
+        druheradky.setValues([[kdo + 'Ranní',datum,'6:30',datum,'14:30','','','FALSE','TRUE']]); //y je počet řádků
+        break;
+              case 2:
+        druheradky.setValues([[kdo + 'Ranní',datum,'6:30',datum,'14:30','','','FALSE','TRUE']]); //y je počet řádků
+        break;
+              case 3:
+        druheradky.setValues([[kdo + 'Od osmi',datum,'8:00',datum,'16:00','','','FALSE','TRUE']]); //y je počet řádků
+        break;
+              case 4:
+       druheradky.setValues([[kdo + 'Od dvanácti',datum,'12:30',datum,'20:30','','','FALSE','TRUE']]); //y je počet řádků
+        break;
+              case 5:
+        druheradky.setValues([[kdo + 'Odpolední',datum,'14:30',datum,'23:00','','','FALSE','TRUE']]); //y je počet řádků
+        break;
+              default: 
+              Logger.log('Volno?');
+              break sloupce;
+          }
+          break sloupce;
+          
+        }
+        
+      }
+  }
+}/*
+
+/*  case 0 && getDate(datum)==0: //neděle POZOR POZOR OPRAVIT DATUM!!!
+              
+              vysledek[pocetradku2] = {0:[kdo + 'Víkend'], 1:[datum], 2:['12:00'], 3:[datum], 4:['20:00'], 5:[''], 6:[''], 7:['FALSE'], 8:['TRUE']}
+              pocetradku2++;
+              break;
+              
+            case 0 && getDate(datum)>0 && getDate(datum)<6: //týden
+              vysledek[pocetradku2] = {0:[kdo + 'Šéfovská'], 1:[datum], 2:['8:30'], 3:[datum], 4:['16:30'], 5:[''], 6:[''], 7:['FALSE'], 8:['TRUE']}
+              pocetradku2++;
+              break;
+              
+            case 0 && getDate(datum)==6: //sobota
+              vysledek[pocetradku2] = {0:[kdo + 'Víkend'], 1:[datum], 2:['8:00'], 3:[datum], 4:['16:00'], 5:[''], 6:[''], 7:['FALSE'], 8:['TRUE']}
+              pocetradku2++;
+              break;
+              
+              case 1:
+              vysledek[pocetradku2] = {0:[kdo + 'Ranní'], 1:[datum], 2:['6:30'], 3:[datum], 4:['14:30'], 5:[''], 6:[''], 7:['FALSE'], 8:['TRUE']}
+        pocetradku2++;
+              break;
+              
+              case 2:
+              vysledek[pocetradku2] = {0:[kdo + 'Ranní'], 1:[datum], 2:['6:30'], 3:[datum], 4:['14:30'], 5:[''], 6:[''], 7:['FALSE'], 8:['TRUE']}
+       pocetradku2++;
+              break;
+              
+              case 3:
+              vysledek[pocetradku2] = {0:[kdo + 'Oo osmi'], 1:[datum], 2:['8:00'], 3:[datum], 4:['16:00'], 5:[''], 6:[''], 7:['FALSE'], 8:['TRUE']}
+        pocetradku2++;
+              break;
+              
+              case 4:
+              vysledek[pocetradku2] = {0:[kdo + 'Od dvanácti'], 1:[datum], 2:['12:30'], 3:[datum], 4:['20:30'], 5:[''], 6:[''], 7:['FALSE'], 8:['TRUE']}
+      pocetradku2++;
+              break;
+              
+              case 5:
+              vysledek[pocetradku2] = {0:[kdo + 'Odpolední'], 1:[datum], 2:['14:30'], 3:[datum], 4:['23:00'], 5:[''], 6:[''], 7:['FALSE'], 8:['TRUE']}
+        pocetradku2++;
+              break;*/
