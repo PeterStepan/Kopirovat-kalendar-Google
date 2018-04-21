@@ -108,14 +108,11 @@ function DoCSV(jmeno,odkud,kam,kdo) { //jmeno = jaké jméno hledám; odkud je j
         }
         
       }
-  }
-  
+  }  
      
   druhyrng = druhy.getRange(2,1,vysledek.length,9); //aby šlo vložit, musí být range stejně velký jako vkládaná proměnná, takže vybereme stejnou velikost - vysledek.length by měl dát počet řádků
   druhyrng.setValues(vysledek);  
  
-  /*moje podivná funkce na to, aby datum sedělo:*/
-  /*prvni.getRange(y+3,1).getValue() + '/' + datum.getMonth() + '/' + datum.getYear()*/ 
   /* zákeřná funkce, která vypodmínkuej to, jaké má být datum, měsíc, rok, funguje to :) */
   function jseDatum(sesit,cyklus,promenna) {
   var bunka = sesit.getRange(cyklus+3,1).getValue(); //jaké je datum v řádku, která se zpracovává
@@ -138,11 +135,7 @@ function DoCSV(jmeno,odkud,kam,kdo) { //jmeno = jaké jméno hledám; odkud je j
    else { //když ale buňka není z minulého měsíce ani příštího a ani není leden ani prosinec, tak se nastaví současný měsíc (+1, protože tak to má javascript)
      return bunka + '/' + (mesic + 1) + '/' + promenna.getYear(); } 
  };
-  
-    
-  
-  
-  
+   
   /*funkce, co dělá vyplnění výsledků*/
   function vyplneni(typsluzby,odkdy,dokdy) {
     vysledek[pocetradku2][0] = typsluzby;
@@ -159,12 +152,6 @@ function DoCSV(jmeno,odkud,kam,kdo) { //jmeno = jaké jméno hledám; odkud je j
   
 };
 
-
-function ProvestCSV() {
-DoCSV('Štěpán','Generátor','Petr','');
-DoCSV('Kubicová','Generátor','Markéta','M - '); 
-}
-
 function dnes() { /*nastaví příští měsíc, někde jsem to opsal*/
   var now = new Date();
   if (now.getMonth() == 11) {
@@ -174,10 +161,6 @@ function dnes() { /*nastaví příští měsíc, někde jsem to opsal*/
 };
   
   SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Generátor').getRange(2,10).setValue(current);
-}
-
-function cojezaden () {
-
 }
 
 //staré funkce:
