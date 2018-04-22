@@ -1,5 +1,5 @@
 function onOpen() { //po otevření se obarví řádek podle toho, jaký je den (bez ohledu na měsíc)
-var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
 var sheet = ss.getSheetByName('Generátor'); 
 var posledniradek = sheet.getLastRow()-2;
 var rng = sheet.getRange(3,1,posledniradek); //jen první sloupec pro hledání
@@ -56,6 +56,7 @@ function DoCSV(jmeno,odkud,kam,kdo) { //jmeno = jaké jméno hledám; odkud je j
   radky:    
   for (var y=0; y < pocetradku-2; y++) { //tolikrát, kolik je řádků (-2, protože jsou tam dva řádky nahoře)
     
+    Logger.log(y + ': ' + datum);
     sloupce:
       for (var i=0; i < 6; i++) { //cyklus, který musí být menší než délka data+1
         
@@ -110,6 +111,7 @@ function DoCSV(jmeno,odkud,kam,kdo) { //jmeno = jaké jméno hledám; odkud je j
   druhyrng = druhy.getRange(2,1,vysledek.length,9); //aby šlo vložit, musí být range stejně velký jako vkládaná proměnná, takže vybereme stejnou velikost - vysledek.length by měl dát počet řádků
   druhyrng.setValues(vysledek);  
  
+  /*moje podivná funkce na to, aby datum sedělo:*/
   /*prvni.getRange(y+3,1).getValue() + '/' + datum.getMonth() + '/' + datum.getYear()*/ 
   /* zákeřná funkce, která vypodmínkuej to, jaké má být datum, měsíc, rok, funguje to :) */
   function jseDatum(sesit,cyklus,promenna) {
@@ -150,6 +152,11 @@ function DoCSV(jmeno,odkud,kam,kdo) { //jmeno = jaké jméno hledám; odkud je j
   
 };
 
+function ProvestCSV() { //provede generaci do obou sheetů
+DoCSV('Štěpán','Generátor','Petr','');
+DoCSV('Kubicová','Generátor','Markéta','M - '); 
+}
+
 function dnes() { /*nastaví příští měsíc, někde jsem to opsal*/
   var now = new Date();
   if (now.getMonth() == 11) {
@@ -164,10 +171,16 @@ function dnes() { /*nastaví příští měsíc, někde jsem to opsal*/
 //import do kalendáře
 function importovat(odkud,kalendar) { //z jakého sheetu se to bude brát a do jakého kalendáře se to nahraje
  var kal1 = CalendarApp.getCalendarById(kalendar); //vybereme kalendář podle ID
+  if (kal1 === null) {return Browser.msgBox('Kalendář neexistuje! Upravte jeho ID.')}
   var ss = SpreadsheetApp.getActiveSpreadsheet(); //vybereme aktivní spreadsheet
  var sheet = ss.getSheetByName(odkud); //vybereme z jakého sheetu se budou data brát
  var velikost = sheet.getLastRow(); //změříme si objem dat
-  
+ var duplicitni = 0; //počet duplicitních událostí
+ var smazane = 0; //počet událostí, které jsme smazali 
+  var viceud = sheet.getRange(2,12).getValue(); //políčko, jestli v jeden den smí být více událostí
+  var importovano = 0; //počet importovaných událostí
+if (velikost <= 1) {return Browser.msgBox('Import selhal', 'List je prázdný, neexistují události, které by šly importovat. Proveďte generování z tabulky služeb tlačítkem Generovat v prvním listu.', Browser.Buttons.OK)}  
+  radky:
   for (var i=2;i<=velikost;i++) { //dělá se tolikrát, kolik je řádek - od 2., protože máme hlavičku. Až do rovno velikosti
  var nazev = sheet.getRange(i,1).getValue(); //vezmeme název události
  var dat1 = sheet.getRange(i,2).getValue(); //vezmeme počáteční datum
@@ -180,127 +193,65 @@ function importovat(odkud,kalendar) { //z jakého sheetu se to bude brát a do j
   datum1.setMinutes(cas1.getMinutes()); //a taky minuty
   datum2.setHours(cas2.getHours());
   datum2.setMinutes(cas2.getMinutes());
-  kal1.createEvent(nazev,datum1,datum2); //vytvoříme událost do kalendáře
-  }
+    
+    if (viceud === 'ANO') { //pokud je zaškrtnuto, že nesmí být více událostí v jednom dni      
+    var events = kal1.getEventsForDay(datum1); //tak se zjistí, jestli v tom dni nějaké jsou  
+      if (events.length > 0) { //pokud jsou,     
+        for(var y=0; y<events.length;y++){ //tak zjistíme, kolik 
+          var ev = events[y]; //to je ID té případné duplicitní
+          if (ev.getTitle() === nazev && events.length < 2) { //když se události shodují, ale neni jich tam víc (což se může stát) tak
+            duplicitni++; //se označí jako duplicitní a nic neřeší (nesmí být continue radky, neb by to způsobilo nesmazání případných dalších)
+          }
+          else { //když se události neshodují, nebo jich je tam víc, ale přesto v tom dni nějaké jsou,         
+            ev.deleteEvent(); //smaže se           
+            smazane++; //přičte se mezi smazané
+            if (y == (events.length-1)) {
+            kal1.createEvent(nazev,datum1,datum2); //vytvoří se nová
+              importovano++; //a zapíše se, že se importovala
+            }
+          }
+        }
+    
+      }
+      else { //a když žádné události v tom dni nejsou:
+      kal1.createEvent(nazev,datum1,datum2); //vytvoří se nová
+    importovano++; //a zapíše se, že se importovala
+      }
+    }
+   /*--------------------------------------------*/
+      else { //pokud zaškrtnuté ANO není (tj. je cokoliv jiného, nejenom NE)
+    var events = kal1.getEvents(datum1, datum2, {search: nazev}); //najdou se události duplicitní, tedy pouze ty, které mají stejný začátek a čas    
+    if (events.length === 1) { //pokud se najde jedna, je to ok a přeskočí se    
+    duplicitni++;
+    }
+        else if (events.length === 0) { //pokud není žádná, neřeší se a vytváří se nová
+          kal1.createEvent(nazev,datum1,datum2); //vytvoří se nová, pokud jich víc v tom dni není
+              importovano++; //a zapíše se, že se importovala
+              
+             }
+        else { //pokud jich je ale víc, musí se to pořešit jinak, protože se to nějak zdvojilo. Smažou se tak všechny duplicity a vytvoří se nová událost
+       
+          for(var y=0; y<events.length;y++){
+          var ev = events[y];
+          ev.deleteEvent(); //smažou se všechny
+            smazane++;
+            if (y == (events.length-1)) { //a až je cyklus u konce, vytvoří se nová
+            kal1.createEvent(nazev,datum1,datum2); //vytvoří se nová, pokud jich víc v tom dni není
+              importovano++; //a zapíše se, že se importovala
+            }
+          }
+      
+        }
+         
+      }
+    
+
+    } //konec "radky"
   
+ if (duplicitni != velikost-1) {     
+      return Browser.msgBox('Import úspěšný','Bylo importováno ' + importovano + ' událostí (smazáno: ' + smazane + ', duplicitní: ' + duplicitni + ').', Browser.Buttons.OK) }
+  else {return Browser.msgBox('Import neúspěšný', 'Všechny události již v kalendáři jsou! Bylo tedy importováno: ' + importovano + ', duplicitni: ' + duplicitni + ', smazáno: ' + smazane + '.', Browser.Buttons.OK)}
+ Logger.log(ev.getStartTime() + ' (' + datum1 + ') - ' + ev.getEndTime() + ' (' + datum2 + ')'); // zapise se do logu
 }
 
-/*záloha
-function DoCSVzaloha(jmeno,odkud,kam,kdo) { //jmeno = jaké jméno hledám; odkud je jaký sheet a dosesitu je do jakého sheetu
-  
-  var ss = SpreadsheetApp.getActiveSpreadsheet(); //aktivní Spreadsheet
-  var prvni = ss.getSheetByName(odkud); //z jakého listu
-  var druhy = ss.getSheetByName(kam); //do jakého listu, zatím se nepoužívá
-  var d = new Date();
-  d = prvni.getRange(2,10).getValue(); //vezme si datum z políčka; ALE PAK POKUD JE PRVNÍ ŘÁDEK VYŠŠÍ JAK 25, TAK MÍNUS MĚSÍC a pak už jen přičítat den - to je u datum
-  var prvniradek = prvni.getRange(3,1).getValue(); //udělá se podle prvního řádku
-  d.setDate(prvniradek); //den se změní na to, co je v prvním řádku tabulky služeb
-  var search = jmeno //co hledáme - zde pak bude "jmeno"
-  var sloupec = "0"; //kolikátý sloupec najdeme, podle toho vyplníme
-  var pocetradku = prvni.getLastRow(); //kolik je řádků 
-  var pocetradku2 = druhy.getLastRow(); //kolik je řádků v sheetu kam se kopíruje (-2, protože jsou tam dva řádky nahoře)
-  
-  var datum = new Date();
-  var prvnidatum = prvni.getRange(3,1).getValue(); //datum co je v prvním řádku
-  datum = d; //jestli tohle neni trochu zbytečný
-  
-  if (prvnidatum > 25) {
-  datum.setMonth(d.getMonth(), 0); //když je první datumv řádku vyšší než 25, tak nastaví datum na poslední den minulého měsíce, což způsobí, že datum o řádek níže pak zůstává v minulém měsíci
-  } 
-  datum.setDate(prvnidatum-1) //nastaví se na den co je v prvním řádku
-  var smazat = druhy.getRange(2,1,pocetradku2,9); //smaže celý soubor od druhého do posledního řádku
-  smazat.clear(); //tohle provede smazání
-  
-  radky:    
-  for (var y=0; y < pocetradku-2; y++) { //tolikrát, kolik je řádků (-2, protože jsou tam dva řádky nahoře)
-    var radek = prvni.getRange(y+3, 2, 1, 6); //vezmeme z TESTu od B2 jeden řádek na šířku šesti sloupců, y + 2 znamená, že začínáme od třetího řádku; chtělo by to předělat na [][]
-      var data = radek.getValues(); //uchováme do data
-    datum.setDate(datum.getDate()+1); //den navíc
-    var pocetradku2 = druhy.getLastRow(); //počet řádků v cílovém listu
-    var druheradky = druhy.getRange(pocetradku2+1,1,1,9); //bere vždy ten řádek, který je prázdný
-    sloupce:
-      for (var i=0; i < 6; i++) { //cyklus, který musí být menší než délka data+1
-        if (data[0][i] == search) { //pokud se daná buňka rovná hledanému jméno
-        sloupec = i;
-          
-          sluzba:
-          switch (sloupec) { //tohle by šlo asi dělat úspornějš a hlavně přes array jako to má příklad s radkem, tj. data[0][y] apod.
-            case 0 && getDate(datum)==0: //neděle
-              druheradky.setValues([[kdo + 'Víkend',datum,'12:00',datum,'20:00','','','FALSE','TRUE']]); //y je počet řádků
-              break;
-              
-            case 0 && getDate(datum)>0 && getDate(datum)<6: //týden
-              druheradky.setValues([[kdo + 'Šéfovská',datum,'12:00',datum,'20:00','','','FALSE','TRUE']]); //y je počet řádků
-              break;
-              
-            case 0 && getDate(datum)==6: //sobota
-              druheradky.setValues([[kdo + 'Víkend',datum,'08:00',datum,'16:00','','','FALSE','TRUE']]); //y je počet řádků
-              break;
-              
-              case 1:
-        druheradky.setValues([[kdo + 'Ranní',datum,'6:30',datum,'14:30','','','FALSE','TRUE']]); //y je počet řádků
-        break;
-              case 2:
-        druheradky.setValues([[kdo + 'Ranní',datum,'6:30',datum,'14:30','','','FALSE','TRUE']]); //y je počet řádků
-        break;
-              case 3:
-        druheradky.setValues([[kdo + 'Od osmi',datum,'8:00',datum,'16:00','','','FALSE','TRUE']]); //y je počet řádků
-        break;
-              case 4:
-       druheradky.setValues([[kdo + 'Od dvanácti',datum,'12:30',datum,'20:30','','','FALSE','TRUE']]); //y je počet řádků
-        break;
-              case 5:
-        druheradky.setValues([[kdo + 'Odpolední',datum,'14:30',datum,'23:00','','','FALSE','TRUE']]); //y je počet řádků
-        break;
-              default: 
-              Logger.log('Volno?');
-              break sloupce;
-          }
-          break sloupce;
-          
-        }
-        
-      }
-  }
-}/*
-
-/*  case 0 && getDate(datum)==0: //neděle POZOR POZOR OPRAVIT DATUM!!!
-              
-              vysledek[pocetradku2] = {0:[kdo + 'Víkend'], 1:[datum], 2:['12:00'], 3:[datum], 4:['20:00'], 5:[''], 6:[''], 7:['FALSE'], 8:['TRUE']}
-              pocetradku2++;
-              break;
-              
-            case 0 && getDate(datum)>0 && getDate(datum)<6: //týden
-              vysledek[pocetradku2] = {0:[kdo + 'Šéfovská'], 1:[datum], 2:['8:30'], 3:[datum], 4:['16:30'], 5:[''], 6:[''], 7:['FALSE'], 8:['TRUE']}
-              pocetradku2++;
-              break;
-              
-            case 0 && getDate(datum)==6: //sobota
-              vysledek[pocetradku2] = {0:[kdo + 'Víkend'], 1:[datum], 2:['8:00'], 3:[datum], 4:['16:00'], 5:[''], 6:[''], 7:['FALSE'], 8:['TRUE']}
-              pocetradku2++;
-              break;
-              
-              case 1:
-              vysledek[pocetradku2] = {0:[kdo + 'Ranní'], 1:[datum], 2:['6:30'], 3:[datum], 4:['14:30'], 5:[''], 6:[''], 7:['FALSE'], 8:['TRUE']}
-        pocetradku2++;
-              break;
-              
-              case 2:
-              vysledek[pocetradku2] = {0:[kdo + 'Ranní'], 1:[datum], 2:['6:30'], 3:[datum], 4:['14:30'], 5:[''], 6:[''], 7:['FALSE'], 8:['TRUE']}
-       pocetradku2++;
-              break;
-              
-              case 3:
-              vysledek[pocetradku2] = {0:[kdo + 'Oo osmi'], 1:[datum], 2:['8:00'], 3:[datum], 4:['16:00'], 5:[''], 6:[''], 7:['FALSE'], 8:['TRUE']}
-        pocetradku2++;
-              break;
-              
-              case 4:
-              vysledek[pocetradku2] = {0:[kdo + 'Od dvanácti'], 1:[datum], 2:['12:30'], 3:[datum], 4:['20:30'], 5:[''], 6:[''], 7:['FALSE'], 8:['TRUE']}
-      pocetradku2++;
-              break;
-              
-              case 5:
-              vysledek[pocetradku2] = {0:[kdo + 'Odpolední'], 1:[datum], 2:['14:30'], 3:[datum], 4:['23:00'], 5:[''], 6:[''], 7:['FALSE'], 8:['TRUE']}
-        pocetradku2++;
-              break;*/
+ 
